@@ -1,0 +1,294 @@
+
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#163d32">
+<title>Meu Controle de Rotas</title>
+<style>
+*{box-sizing:border-box}
+body{
+ margin:0;background:#f1f5f3;
+ font-family:Arial,sans-serif;color:#18352b;
+ padding:15px;
+}
+header{
+ background:#163d32;color:white;
+ padding:22px;border-radius:15px;
+ text-align:center;margin-bottom:15px;
+}
+header h2{margin:0 0 8px}
+.card{
+ background:white;padding:17px;
+ border-radius:13px;margin-bottom:15px;
+ box-shadow:0 2px 8px #0000000c;
+}
+h3{margin-top:0}
+label{display:block;font-size:13px;margin:12px 0 5px}
+input{
+ width:100%;padding:12px;
+ border:1px solid #ccd8d1;
+ border-radius:8px;font-size:16px;
+}
+button{
+ border:0;border-radius:9px;
+ padding:13px;background:#16734e;
+ color:white;font-size:15px;
+ width:100%;margin-top:12px;
+}
+.secondary{background:#36564a}
+.delete{background:#b42318}
+.grid{
+ display:grid;grid-template-columns:1fr 1fr;
+ gap:10px;
+}
+.stat{
+ background:#e9f4ed;padding:13px;
+ border-radius:10px;
+}
+.stat small{display:block;color:#557164}
+.stat strong{font-size:19px}
+.item{
+ padding:12px 0;border-bottom:1px solid #ddd;
+}
+.green{color:#16804e}
+.red{color:#b42318}
+nav{display:flex;gap:6px;margin-bottom:15px}
+nav button{margin:0;font-size:12px;padding:11px 4px}
+.hidden{display:none}
+</style>
+</head>
+<body>
+
+<header>
+<h2>🚚 Meu Controle de Rotas</h2>
+<p>Controle pessoal de KM e pagamentos</p>
+<strong>R$ 1,10 por KM</strong>
+</header>
+
+<nav>
+<button onclick="show('cadastro')">Nova rota</button>
+<button class="secondary" onclick="show('historico')">Histórico</button>
+<button class="secondary" onclick="show('relatorio')">Relatórios</button>
+</nav>
+
+<section id="cadastro">
+<div class="card">
+<h3>Cadastro de viagem</h3>
+
+<label>Data</label>
+<input type="date" id="data">
+
+<label>Número do chamado</label>
+<input id="chamado" placeholder="Número do chamado">
+
+<label>Local de saída</label>
+<input id="origem" placeholder="Origem">
+
+<label>Local de destino</label>
+<input id="destino" placeholder="Destino">
+
+<div class="grid">
+<div>
+<label>KM inicial</label>
+<input type="number" id="inicial" value="0" oninput="calcular()">
+</div>
+<div>
+<label>KM final</label>
+<input type="number" id="final" value="0" oninput="calcular()">
+</div>
+</div>
+
+<label>Adiantamento combustível (R$)</label>
+<input type="number" id="adiantamento" value="0"
+step="0.01" oninput="calcular()">
+
+<label>Observações</label>
+<input id="obs" placeholder="Observações">
+
+<div class="card">
+<div class="grid">
+<div class="stat">
+<small>KM rodados</small>
+<strong id="km">0</strong>
+</div>
+<div class="stat">
+<small>Valor bruto</small>
+<strong id="bruto">R$ 0,00</strong>
+</div>
+</div>
+<br>
+<div class="stat">
+<small>Saldo a receber</small>
+<strong class="green" id="liquido">R$ 0,00</strong>
+</div>
+</div>
+
+<button onclick="salvar()">SALVAR VIAGEM</button>
+</div>
+</section>
+
+<section id="historico" class="hidden">
+<div class="card">
+<h3>Histórico de viagens</h3>
+<div id="lista"></div>
+</div>
+</section>
+
+<section id="relatorio" class="hidden">
+<div class="card">
+<h3>Relatório mensal</h3>
+<label>Escolha o mês</label>
+<input type="month" id="mes" onchange="relatorio()">
+<div id="resultado"></div>
+<button onclick="exportar()">EXPORTAR CSV</button>
+<button class="secondary" onclick="window.print()">IMPRIMIR / PDF</button>
+</div>
+</section>
+
+<script>
+const TARIFA = 1.10;
+let viagens = JSON.parse(
+ localStorage.getItem("minhasRotas") || "[]"
+);
+
+const moeda = n => n.toLocaleString("pt-BR",{
+ style:"currency",currency:"BRL"
+});
+
+function calcular(){
+ let km = Number(final.value)-Number(inicial.value);
+ km = Math.max(0,km);
+ let bruto = km*TARIFA;
+ let ad = Number(adiantamento.value)||0;
+ kmEl.textContent = km.toLocaleString("pt-BR");
+ brutoEl.textContent = moeda(bruto);
+ liquidoEl.textContent = moeda(bruto-ad);
+}
+
+const kmEl=document.getElementById("km");
+const brutoEl=document.getElementById("bruto");
+const liquidoEl=document.getElementById("liquido");
+
+function salvar(){
+ let km = Number(final.value)-Number(inicial.value);
+ let ad = Number(adiantamento.value)||0;
+
+ if(!data.value || !chamado.value.trim() ||
+ !origem.value.trim() || !destino.value.trim() ||
+ km<=0 || ad<0 || ad>km*TARIFA){
+ alert("Confira os dados. O adiantamento não pode superar o valor bruto.");
+ return;
+ }
+
+ viagens.push({
+ id:Date.now(),
+ data:data.value,
+ chamado:chamado.value,
+ origem:origem.value,
+ destino:destino.value,
+ inicial:Number(inicial.value),
+ final:Number(final.value),
+ km:km,
+ bruto:km*TARIFA,
+ adiantamento:ad,
+ obs:obs.value
+ });
+
+ localStorage.setItem("minhasRotas",JSON.stringify(viagens));
+ alert("Viagem salva com sucesso!");
+
+ chamado.value="";
+ origem.value="";
+ destino.value="";
+ inicial.value=0;
+ final.value=0;
+ adiantamento.value=0;
+ obs.value="";
+ calcular();
+ listar();
+ relatorio();
+}
+
+function show(t){
+ ["cadastro","historico","relatorio"].forEach(id=>{
+ document.getElementById(id).classList.add("hidden");
+ });
+ document.getElementById(t).classList.remove("hidden");
+ if(t==="historico") listar();
+ if(t==="relatorio") relatorio();
+}
+
+function listar(){
+ let html="";
+ [...viagens].reverse().forEach(v=>{
+ html+=`
+ <div class="item">
+ <strong>Chamado: ${v.chamado}</strong><br>
+ ${v.data}<br>
+ ${v.origem} → ${v.destino}<br>
+ KM: ${v.km}<br>
+ Bruto: ${moeda(v.bruto)}<br>
+ Adiantamento: ${moeda(v.adiantamento)}<br>
+ <strong class="green">Saldo: ${moeda(v.bruto-v.adiantamento)}</strong>
+ <br><small>${v.obs||""}</small>
+ <button class="delete" onclick="excluir(${v.id})">Excluir viagem</button>
+ </div>`;
+ });
+ document.getElementById("lista").innerHTML=
+ html||"Nenhuma viagem cadastrada.";
+}
+
+function excluir(id){
+ if(confirm("Deseja excluir esta viagem?")){
+ viagens=viagens.filter(v=>v.id!==id);
+ localStorage.setItem("minhasRotas",JSON.stringify(viagens));
+ listar();
+ relatorio();
+ }
+}
+
+function relatorio(){
+ let mes=document.getElementById("mes").value;
+ let dados=viagens.filter(v=>v.data.startsWith(mes));
+ let km=dados.reduce((s,v)=>s+v.km,0);
+ let bruto=dados.reduce((s,v)=>s+v.bruto,0);
+ let ad=dados.reduce((s,v)=>s+v.adiantamento,0);
+
+ document.getElementById("resultado").innerHTML=`
+ <div class="stat">Viagens: <strong>${dados.length}</strong></div><br>
+ <div class="stat">Total KM: <strong>${km}</strong></div><br>
+ <div class="stat">Valor bruto: <strong>${moeda(bruto)}</strong></div><br>
+ <div class="stat">Adiantamentos: <strong>${moeda(ad)}</strong></div><br>
+ <div class="stat">Saldo a receber: <strong>${moeda(bruto-ad)}</strong></div>
+ <h3>Viagens do mês</h3>
+ ${dados.map(v=>`<p>Chamado ${v.chamado} - ${v.km} KM - ${moeda(v.bruto-v.adiantamento)}</p>`).join("")}
+ `;
+}
+
+function exportar(){
+ let mes=document.getElementById("mes").value;
+ let dados=viagens.filter(v=>v.data.startsWith(mes));
+ let linhas=[
+ ["Data","Chamado","Origem","Destino","KM","Bruto","Adiantamento","Saldo"],
+ ...dados.map(v=>[
+ v.data,v.chamado,v.origem,v.destino,v.km,
+ v.bruto.toFixed(2),v.adiantamento.toFixed(2),
+ (v.bruto-v.adiantamento).toFixed(2)
+ ])
+ ];
+ let csv="\uFEFF"+linhas.map(l=>l.join(";")).join("\n");
+ let blob=new Blob([csv],{type:"text/csv;charset=utf-8"});
+ let url=URL.createObjectURL(blob);
+ let a=document.createElement("a");
+ a.href=url;a.download="relatorio-rotas.csv";a.click();
+ URL.revokeObjectURL(url);
+}
+
+data.value=new Date().toISOString().slice(0,10);
+mes.value=new Date().toISOString().slice(0,7);
+calcular();
+</script>
+</body>
+</html>
